@@ -1,0 +1,14 @@
+# 音乐文件 - 版权原因不上传
+*.mp3
+*.m4a
+*.flac
+*.ncm
+*.wav
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
