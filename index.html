@@ -11,7 +11,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     width: 100%; height: 100%; overflow: hidden;
-    font-family: "PingFang SC", "Microsoft YaHei", "Songti SC", serif;
+    font-family: "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", "Source Han Sans CN", "Noto Sans CJK SC", "Songti SC", serif;
     color: #fff;
     cursor: none;
     background: #ffd6e7;
@@ -432,14 +432,24 @@
 
 
 <script>
-/* 判断是否移动端 */
-const IS_MOBILE = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-const DPR = Math.min(window.devicePixelRatio || 1, 2);
+/* ========== 设备 & 性能检测 ========== */
+const UA = navigator.userAgent || '';
+const IS_MOBILE   = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+const IS_HARMONY  = /HarmonyOS|HMSCore|ArkWeb|HUAWEI|HONOR/i.test(UA);
+const CORES       = navigator.hardwareConcurrency || 4;
+const MEM_GB      = navigator.deviceMemory || 4;
+/* 低端机判定：核心数 ≤4 或内存 ≤3GB 视为低端 */
+const IS_LOW_END  = CORES <= 4 || MEM_GB <= 3;
+/* DPR 控制：低端机最高 1.5x，普通手机 2x，桌面 2x */
+const DPR = Math.min(window.devicePixelRatio || 1, IS_LOW_END ? 1.5 : 2);
 
-const STAR_COUNT   = IS_MOBILE ? 100 : 200;
-const HEART_COUNT  = IS_MOBILE ? 350 : 700;
-const PETAL_COUNT  = IS_MOBILE ? 28  : 60;
-const MAX_PARTICLE = IS_MOBILE ? 800 : 1800;
+/* 三档性能：HIGH(桌面) / MID(普通手机) / LOW(低端/鸿蒙老设备) */
+const TIER = !IS_MOBILE ? 'HIGH' : (IS_LOW_END ? 'LOW' : 'MID');
+
+const STAR_COUNT   = { HIGH: 200, MID: 100, LOW: 60  }[TIER];
+const HEART_COUNT  = { HIGH: 700, MID: 350, LOW: 200 }[TIER];
+const PETAL_COUNT  = { HIGH: 60,  MID: 28,  LOW: 18  }[TIER];
+const MAX_PARTICLE = { HIGH: 1800,MID: 800, LOW: 500 }[TIER];
 
 /* ========== Canvas 初始化 ========== */
 const starsC = document.getElementById('stars');
@@ -622,8 +632,8 @@ setInterval(burst, 4000);
 
 /* ========== 烟花 ========== */
 function burst(){
-  const rounds = IS_MOBILE ? 4 : 6;
-  const count  = IS_MOBILE ? 80 : 140;
+  const rounds = { HIGH: 6, MID: 4, LOW: 2 }[TIER];
+  const count  = { HIGH: 140, MID: 80, LOW: 50 }[TIER];
   for(let k=0;k<rounds;k++){
     setTimeout(()=>{
       const cx = Math.random()*innerWidth;
