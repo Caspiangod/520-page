@@ -12,3 +12,10 @@ Thumbs.db
 # 编辑器
 .vscode/
 .idea/
+
+# 含密钥的脚本，永不上传
+sign_url.py
+*.key
+*.pem
+.env
+.env.*
