@@ -402,7 +402,11 @@
 </div>
 
 <!-- 背景音乐（请将同目录的歌曲文件命名为 song.mp3） -->
-<audio id="bgm" src="https://caspiangod.oss-cn-shanghai.aliyuncs.com/song.mp3" loop preload="auto"></audio>
+<audio id="bgm" src="https://caspiangod.oss-cn-shanghai.aliyuncs.com/song.mp3"
+       loop preload="auto"
+       playsinline webkit-playsinline
+       x5-playsinline x5-video-player-type="h5-page"
+       controlslist="nodownload"></audio>
 
 <!-- 音乐控制按钮 -->
 <button class="music-btn paused" id="musicBtn" aria-label="音乐">
@@ -410,7 +414,7 @@
     <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
   </svg>
 </button>
-<div class="music-tip" id="musicTip">♪ 把回忆拼好给你 — 王贰浪</div>
+<div class="music-tip" id="musicTip">♪ Falling You — 曾可妮 / 都智文</div>
 
 <div class="sky"></div>
 <div class="bokeh"></div>
@@ -708,10 +712,12 @@ if(!IS_MOBILE){
   }, {passive:true});
 }
 
-/* ========== 音乐控制 ========== */
+/* ========== 音乐控制（兼容荣耀/华为/微信 X5 等浏览器） ========== */
 const bgm = document.getElementById('bgm');
 const musicBtn = document.getElementById('musicBtn');
 const musicTip = document.getElementById('musicTip');
+
+bgm.volume = 0.85;
 
 function showTip(ms=2500){
   musicTip.classList.add('show');
@@ -719,31 +725,95 @@ function showTip(ms=2500){
   showTip._t = setTimeout(()=> musicTip.classList.remove('show'), ms);
 }
 
+let playSucceeded = false;
+
+/* 核心播放函数：必须在用户手势同步调用栈里 */
 function tryPlay(){
+  /* 荣耀/华为浏览器：先 load() 再 play() 成功率更高 */
+  try { bgm.load(); } catch(e){}
   const p = bgm.play();
-  if(p && p.catch){
+  if(p && p.then){
     p.then(()=>{
+      playSucceeded = true;
       musicBtn.classList.remove('paused');
       showTip();
-    }).catch(()=>{
+    }).catch(err=>{
+      console.warn('[音乐] 播放失败，等待用户交互重试:', err && err.name);
       musicBtn.classList.add('paused');
+      armFallbackUnlock();
     });
+  } else {
+    /* 老浏览器没有 Promise，假定成功 */
+    playSucceeded = true;
+    musicBtn.classList.remove('paused');
+    showTip();
   }
 }
 
-musicBtn.addEventListener('click', ()=>{
-  if(bgm.paused){ tryPlay(); }
-  else { bgm.pause(); musicBtn.classList.add('paused'); }
+/* 兜底：任何后续用户交互都尝试播放一次（用于荣耀首次 click 不放行的情况） */
+let unlockArmed = false;
+function armFallbackUnlock(){
+  if(unlockArmed) return;
+  unlockArmed = true;
+  const handler = ()=>{
+    if(playSucceeded){ teardown(); return; }
+    try { bgm.load(); } catch(e){}
+    const p = bgm.play();
+    if(p && p.then){
+      p.then(()=>{
+        playSucceeded = true;
+        musicBtn.classList.remove('paused');
+        showTip();
+        teardown();
+      }).catch(()=>{});
+    }
+  };
+  const teardown = ()=>{
+    ['touchend','click','pointerup','touchstart'].forEach(ev=>
+      document.removeEventListener(ev, handler, true)
+    );
+  };
+  ['touchend','click','pointerup','touchstart'].forEach(ev=>
+    document.addEventListener(ev, handler, true)
+  );
+}
+
+/* 监听音频加载错误（OSS 链接/CORS/网络问题排查用） */
+bgm.addEventListener('error', e=>{
+  console.error('[音乐] 加载失败:', bgm.error && bgm.error.code, bgm.currentSrc);
+});
+bgm.addEventListener('playing', ()=>{
+  playSucceeded = true;
+  musicBtn.classList.remove('paused');
+});
+bgm.addEventListener('pause', ()=>{
+  musicBtn.classList.add('paused');
 });
 
-/* 启动遮罩：点击后开始播放音乐 + 打字机 */
+musicBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  if(bgm.paused){ tryPlay(); }
+  else { bgm.pause(); }
+});
+
+/* 启动遮罩：点击/触摸后立即播放 */
 const gate = document.getElementById('gate');
-document.getElementById('gateBtn').addEventListener('click', ()=>{
+const gateBtn = document.getElementById('gateBtn');
+
+function enterStage(e){
+  if(e) { e.preventDefault(); e.stopPropagation(); }
   gate.classList.add('hide');
   setTimeout(()=> gate.style.display = 'none', 1000);
   tryPlay();
   showTip(4000);
-});
+}
+/* 用 pointerup 优先，回退到 click + touchend，确保荣耀触屏也走得通 */
+if('PointerEvent' in window){
+  gateBtn.addEventListener('pointerup', enterStage);
+} else {
+  gateBtn.addEventListener('touchend', enterStage, {passive:false});
+  gateBtn.addEventListener('click', enterStage);
+}
 </script>
 </body>
 </html>
